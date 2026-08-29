@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>clock_log</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230a0e0c'/%3E%3Crect x='4' y='4' width='92' height='92' rx='14' fill='none' stroke='%231f7d4c' stroke-width='2'/%3E%3Ctext x='50' y='66' font-family='monospace' font-size='54' font-weight='bold' fill='%2339ff8c' text-anchor='middle'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230a0e0c'/%3E%3Crect x='4' y='4' width='92' height='92' rx='14' fill='none' stroke='%231f7d4c' stroke-width='2'/%3E%3Ctext x='50' y='66' font-family='monospace' font-size='54' font-weight='bold' fill='%2339ff8c' text-anchor='middle'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#0a0e0c">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="clock_log">
+<style>
+  :root {
+    --bg: #0a0e0c;
+    --panel: #0f1512;
+    --grid: rgba(57, 255, 140, 0.06);
+    --line: #1e2b23;
+    --text: #eafff0;
+    --dim: #7f9e8e;
+    --accent: #39ff8c;
+    --accent-dim: #1f7d4c;
+    --amber: #ffb454;
+    --danger: #ff5c5c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  #root {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Courier New', monospace;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 22px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 100%,
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 28px 20px 40px;
+  }
+  .wrap {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 68px);
+  }
+
+  .title {
+    font-size: 26px;
+    letter-spacing: 0.04em;
+    margin: 0 0 4px;
+    color: var(--accent);
+    text-shadow: 0 0 10px rgba(57,255,140,0.35);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .title::before { content: "❯"; color: var(--accent-dim); }
+  .sub {
+    font-size: 13px;
+    color: var(--dim);
+    margin: 0 0 0 26px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .gear-btn {
+    font-size: 20px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--dim);
+    padding: 8px 12px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .gear-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+  .settings-panel {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 20px;
+    background: var(--panel);
+  }
+  .settings-label {
+    font-size: 10px;
+    color: var(--amber);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .settings-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 10px;
+    outline: none;
+    margin-bottom: 10px;
+  }
+  .settings-input:focus { border-color: var(--accent-dim); }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .settings-save {
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--accent-dim);
+    color: #06120a;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  .settings-save:hover { background: var(--accent); }
+  .settings-status {
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .quick-log { margin-bottom: 14px; }
+  .quick-log-input { margin-bottom: 0; }
+
+  .clock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: 32vh;
+    font-family: inherit;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 14px;
+    transition: transform 0.08s ease, box-shadow 0.15s ease;
+  }
+  .clock-btn:active { transform: scale(0.98); }
+  .clock-btn.state-in {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    box-shadow: 0 0 0 1px rgba(57,255,140,0.03) inset;
+  }
+  .clock-btn.state-in:hover { background: rgba(57,255,140,0.08); }
+  .clock-btn.state-out {
+    background: var(--accent);
+    color: #06120a;
+    border: 1px solid var(--accent);
+    box-shadow: 0 0 24px rgba(57,255,140,0.25);
+  }
+  .clock-btn.state-out:hover { background: #4dffa0; }
+
+  .status-line {
+    font-size: 13px;
+    color: var(--accent-dim);
+    margin: 0 0 22px 2px;
+    min-height: 18px;
+    letter-spacing: 0.02em;
+  }
+  .status-line::before { content: "# "; color: var(--dim); }
+  .status-line:empty::before { content: ""; }
+
+  .current-session {
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    padding: 18px 18px;
+    margin-bottom: 28px;
+    font-size: 14px;
+    color: var(--dim);
+  }
+  .current-session .cs-label {
+    color: var(--amber);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  .current-session .cs-time { color: var(--text); font-size: 15px; }
+
+  .log-head {
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+
+  .log-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 2px;
+    border-bottom: 1px solid #2a3d31;
+    font-size: 16px;
+  }
+  .item:last-child { border-bottom: none; }
+  .badge {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 4px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    width: 46px;
+    text-align: center;
+  }
+  .badge.in { color: #06120a; background: var(--accent); }
+  .badge.out { color: var(--text); background: transparent; border: 1px solid var(--line); }
+  .badge.note { color: #06120a; background: var(--amber); }
+  .item .when { color: var(--text); flex: 1; }
+  .item .dur { color: var(--amber); font-size: 13px; white-space: nowrap; }
+  .item .del {
+    background: none;
+    border: none;
+    color: var(--dim);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 6px;
+    line-height: 1;
+  }
+  .item .del:hover { color: var(--danger); }
+
+  .empty {
+    color: var(--dim);
+    font-size: 14px;
+    padding: 32px 16px;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    text-align: center;
+    letter-spacing: 0.02em;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .empty::before { content: "// "; color: var(--accent-dim); }
+
+  .auth-wrap {
+    width: 100%;
+    max-width: 420px;
+    margin: 20vh auto 0;
+    text-align: center;
+  }
+  .auth-wrap .title { justify-content: center; margin-bottom: 6px; }
+  .auth-wrap .sub { margin: 0 0 28px; }
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+  }
+  .auth-error {
+    color: var(--danger);
+    font-size: 12px;
+    text-align: left;
+    margin-top: -4px;
+  }
+  .auth-submit {
+    width: 100%;
+    padding: 14px 0;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .auth-reset {
+    background: none;
+    border: none;
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-top: 18px;
+  }
+  .auth-reset:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const STORAGE_KEY = "clock-log:entries";
+const SHEETS_URL_KEY = "clock-log:sheets-url";
+const KEYWORD_KEY = "clock-log:keyword";
+const DEFAULT_KEYWORD = "log";
+
+function loadLocal(key) {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? null : v;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveLocal(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function formatWhen(iso) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  return date + " · " + time;
+}
+
+function formatDuration(ms) {
+  const totalSec = Math.round(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return h + "h " + m + "m";
+  if (m > 0) return m + "m " + s + "s";
+  return s + "s";
+}
+
+const AUTH_KEY = "clock-log:auth";
+
+async function hashText(text) {
+  if (window.crypto && window.crypto.subtle) {
+    try {
+      const enc = new TextEncoder().encode(text);
+      const buf = await window.crypto.subtle.digest("SHA-256", enc);
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch (e) {
+      // fall through to the basic hash below
+    }
+  }
+  // fallback for non-secure contexts (e.g. plain file:// pages) where
+  // crypto.subtle isn't available — not cryptographically strong, but
+  // keeps the login working everywhere.
+  let h = 0;
+  for (let i = 0; i < text.length; i++) {
+    h = (Math.imul(31, h) + text.charCodeAt(i)) | 0;
+  }
+  return "fb" + (h >>> 0).toString(16);
+}
+
+function AuthGate() {
+  const [authConfig, setAuthConfig] = useState(undefined); // undefined = loading, null = not set
+  const [unlocked, setUnlocked] = useState(false);
+  const [mode, setMode] = useState("login"); // "login" | "setup"
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const raw = loadLocal(AUTH_KEY);
+    if (raw) {
+      try {
+        setAuthConfig(JSON.parse(raw));
+        setMode("login");
+      } catch (e) {
+        setAuthConfig(null);
+        setMode("setup");
+      }
+    } else {
+      setAuthConfig(null);
+      setMode("setup");
+    }
+  }, []);
+
+  const handleSetup = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!username.trim() || !password) {
+      setError("Enter a username and password.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+    const passHash = await hashText(password);
+    const config = { username: username.trim(), passHash };
+    saveLocal(AUTH_KEY, JSON.stringify(config));
+    setAuthConfig(config);
+    setUnlocked(true);
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    const passHash = await hashText(password);
+    if (username.trim() === authConfig.username && passHash === authConfig.passHash) {
+      setUnlocked(true);
+    } else {
+      setError("Incorrect username or password.");
+      setPassword("");
+    }
+  };
+
+  const handleReset = () => {
+    if (window.confirm("Reset login? This clears the saved username/password (not your log entries).")) {
+      try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+      setAuthConfig(null);
+      setMode("setup");
+      setUsername("");
+      setPassword("");
+      setConfirmPassword("");
+      setError("");
+    }
+  };
+
+  if (unlocked) return <ClockApp />;
+
+  if (authConfig === undefined) {
+    return <div className="auth-wrap"><div className="empty">loading…</div></div>;
+  }
+
+  return (
+    <div className="auth-wrap">
+      <h1 className="title">clock_log</h1>
+      <p className="sub">{mode === "setup" ? "create your login" : "sign in to continue"}</p>
+
+      <form className="auth-form" onSubmit={mode === "setup" ? handleSetup : handleLogin}>
+        <input
+          type="text"
+          className="settings-input"
+          placeholder="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+        />
+        <input
+          type="password"
+          className="settings-input"
+          placeholder="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {mode === "setup" && (
+          <input
+            type="password"
+            className="settings-input"
+            placeholder="confirm password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+        )}
+        {error && <div className="auth-error">{error}</div>}
+        <button type="submit" className="settings-save auth-submit">
+          {mode === "setup" ? "Create login" : "Log in"}
+        </button>
+      </form>
+
+      {mode === "login" && (
+        <button className="auth-reset" onClick={handleReset}>forgot password? reset login</button>
+      )}
+    </div>
+  );
+}
+
+function ClockApp() {
+  const [entries, setEntries] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [status, setStatus] = useState("");
+  const [sheetsUrl, setSheetsUrl] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [urlDraft, setUrlDraft] = useState("");
+  const [keyword, setKeyword] = useState(DEFAULT_KEYWORD);
+  const [keywordDraft, setKeywordDraft] = useState(DEFAULT_KEYWORD);
+  const [quickInput, setQuickInput] = useState("");
+  const statusTimer = useRef(null);
+
+  useEffect(() => {
+    const raw = loadLocal(STORAGE_KEY);
+    if (raw) {
+      try {
+        setEntries(JSON.parse(raw));
+      } catch (e) {
+        // ignore corrupt data
+      }
+    }
+    const savedUrl = loadLocal(SHEETS_URL_KEY);
+    if (savedUrl) {
+      setSheetsUrl(savedUrl);
+      setUrlDraft(savedUrl);
+    }
+    const savedKeyword = loadLocal(KEYWORD_KEY);
+    if (savedKeyword) {
+      setKeyword(savedKeyword);
+      setKeywordDraft(savedKeyword);
+    }
+    setLoaded(true);
+  }, []);
+
+  const persist = useCallback((next) => {
+    const ok = saveLocal(STORAGE_KEY, JSON.stringify(next));
+    if (!ok) {
+      setStatus("Couldn't save — try again");
+      clearTimeout(statusTimer.current);
+      statusTimer.current = setTimeout(() => setStatus(""), 2500);
+    }
+  }, []);
+
+  // formats a timestamp as M/D/YY, e.g. 8/29/26
+  const formatDay = (iso) => {
+    const d = new Date(iso);
+    return (d.getMonth() + 1) + "/" + d.getDate() + "/" + String(d.getFullYear()).slice(-2);
+  };
+
+  // formats a timestamp as 12-hour time with AM/PM, e.g. 7:30AM or 5:00PM
+  const formatTime24 = (iso) => {
+    const d = new Date(iso);
+    let h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2, "0");
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12;
+    if (h === 0) h = 12;
+    return h + ":" + m + ampm;
+  };
+
+  const syncSessionToSheet = useCallback((inTs, outTs) => {
+    if (!sheetsUrl) return;
+    const payload = {
+      day: formatDay(inTs),
+      timeIn: formatTime24(inTs),
+      timeOut: formatTime24(outTs),
+    };
+    // no-cors: Apps Script web apps don't return CORS headers, so the
+    // response is opaque — this is a fire-and-forget send.
+    fetch(sheetsUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload),
+    }).catch(() => {
+      setStatus("Logged locally — Sheets sync failed");
+      clearTimeout(statusTimer.current);
+      statusTimer.current = setTimeout(() => setStatus(""), 3000);
+    });
+  }, [sheetsUrl]);
+
+  const saveSheetsUrl = useCallback(() => {
+    const trimmed = urlDraft.trim();
+    setSheetsUrl(trimmed);
+    saveLocal(SHEETS_URL_KEY, trimmed);
+    const trimmedKeyword = keywordDraft.trim() || DEFAULT_KEYWORD;
+    setKeyword(trimmedKeyword);
+    setKeywordDraft(trimmedKeyword);
+    saveLocal(KEYWORD_KEY, trimmedKeyword);
+    setStatus("Settings saved");
+    clearTimeout(statusTimer.current);
+    statusTimer.current = setTimeout(() => setStatus(""), 2500);
+    setShowSettings(false);
+  }, [urlDraft, keywordDraft]);
+
+  // logs a plain timestamped "note" entry — triggered by typing the
+  // configured keyword into the quick-log box and hitting Enter
+  const logKeywordEntry = useCallback(() => {
+    const entry = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+      ts: new Date().toISOString(),
+      type: "note",
+    };
+    setEntries((prev) => {
+      const next = [entry, ...prev];
+      persist(next);
+      return next;
+    });
+    setStatus("Logged at " + formatWhen(entry.ts));
+    clearTimeout(statusTimer.current);
+    statusTimer.current = setTimeout(() => setStatus(""), 3000);
+  }, [persist]);
+
+  const handleQuickInputChange = useCallback((e) => {
+    setQuickInput(e.target.value);
+  }, []);
+
+  const handleQuickInputKeyDown = useCallback((e) => {
+    if (e.key !== "Enter") return;
+    if (quickInput.trim().toLowerCase() === keyword.trim().toLowerCase()) {
+      logKeywordEntry();
+    }
+    setQuickInput("");
+  }, [quickInput, keyword, logKeywordEntry]);
+
+  // find the most recent clock in/out (ignoring "note" entries from quick-log)
+  // to determine whether we're currently clocked in.
+  const lastClockEntry = entries.find((e) => e.type === "in" || e.type === "out");
+  const currentlyIn = loaded && !!lastClockEntry && lastClockEntry.type === "in";
+  const nextType = currentlyIn ? "out" : "in";
+
+  const handleClock = useCallback(() => {
+    const entry = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+      ts: new Date().toISOString(),
+      type: nextType,
+    };
+    // if we're clocking out, lastClockEntry is the matching "in" for this session
+    const sessionInTs = nextType === "out" && lastClockEntry ? lastClockEntry.ts : null;
+    setEntries((prev) => {
+      const next = [entry, ...prev];
+      persist(next);
+      return next;
+    });
+    if (nextType === "out" && sessionInTs) {
+      syncSessionToSheet(sessionInTs, entry.ts);
+    }
+    setStatus(
+      "Clocked " + nextType.toUpperCase() + " at " + formatWhen(entry.ts) +
+      (sheetsUrl && nextType === "out" ? " · syncing…" : "")
+    );
+    clearTimeout(statusTimer.current);
+    statusTimer.current = setTimeout(() => setStatus(""), 3000);
+  }, [nextType, lastClockEntry, persist, syncSessionToSheet, sheetsUrl]);
+
+  const deleteEntry = useCallback((id) => {
+    setEntries((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  // pair each "out" with the "in" that follows it in the (newest-first) list
+  const withDurations = entries.map((item, idx) => {
+    if (item.type === "out") {
+      const pairIn = entries.slice(idx + 1).find((x) => x.type === "in");
+      if (pairIn) {
+        return { ...item, durationMs: new Date(item.ts) - new Date(pairIn.ts) };
+      }
+    }
+    return item;
+  });
+
+  return (
+    <div className="wrap">
+      <div className="header-row">
+        <div>
+          <h1 className="title">clock_log</h1>
+          <p className="sub">tap once to clock in, again to clock out</p>
+        </div>
+        <button className="gear-btn" onClick={() => setShowSettings((s) => !s)} aria-label="Sheets sync settings">
+          ⚙
+        </button>
+      </div>
+
+      {showSettings && (
+        <div className="settings-panel">
+          <div className="settings-label">google sheets web app url</div>
+          <input
+            type="text"
+            className="settings-input"
+            placeholder="https://script.google.com/macros/s/…/exec"
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+          />
+          <div className="settings-label" style={{ marginTop: "4px" }}>quick-log keyword</div>
+          <input
+            type="text"
+            className="settings-input"
+            placeholder="log"
+            value={keywordDraft}
+            onChange={(e) => setKeywordDraft(e.target.value)}
+            autoCapitalize="none"
+            autoCorrect="off"
+          />
+          <div className="settings-row">
+            <button className="settings-save" onClick={saveSheetsUrl}>Save</button>
+            {sheetsUrl && <span className="settings-status">syncing to sheet</span>}
+          </div>
+        </div>
+      )}
+
+      <div className="quick-log">
+        <input
+          type="text"
+          className="settings-input quick-log-input"
+          placeholder={'type "' + keyword + '" + enter to log the current time'}
+          value={quickInput}
+          onChange={handleQuickInputChange}
+          onKeyDown={handleQuickInputKeyDown}
+          autoCapitalize="none"
+          autoCorrect="off"
+        />
+      </div>
+
+      <button
+        className={"clock-btn " + (currentlyIn ? "state-out" : "state-in")}
+        onClick={handleClock}
+        disabled={!loaded}
+      >
+        {currentlyIn ? "Clock Out" : "Clock In"}
+      </button>
+      <div className="status-line">{status}</div>
+
+      {currentlyIn && (
+        <div className="current-session">
+          <div className="cs-label">currently clocked in</div>
+          <div className="cs-time">since {formatWhen(lastClockEntry.ts)}</div>
+        </div>
+      )}
+
+      {!loaded ? (
+        <div className="empty">loading log…</div>
+      ) : entries.length === 0 ? (
+        <div className="empty">no entries yet — tap clock in to start</div>
+      ) : (
+        <div className="log-scroll">
+          <div className="log-head">history</div>
+          {withDurations.map((item) => (
+            <div className="item" key={item.id}>
+              <span className={"badge " + item.type}>{item.type}</span>
+              <span className="when">{formatWhen(item.ts)}</span>
+              {item.durationMs != null && (
+                <span className="dur">{formatDuration(item.durationMs)}</span>
+              )}
+              <button className="del" onClick={() => deleteEntry(item.id)} aria-label="Delete entry">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<AuthGate />);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch((err) => {
+      console.warn("Service worker registration failed:", err);
+    });
+  });
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+</body>
+</html>
